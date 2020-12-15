@@ -37,6 +37,8 @@ export interface CameraPreviewPlugin {
   start(options: CameraPreviewOptions): Promise<{}>;
   stop(): Promise<{}>;
   capture(options: CameraPreviewPictureOptions): Promise<{ value: string }>;
+    startRecordVideo(): Promise<{}>;
+    stopRecordVideo(): Promise<{ value: string }>;
   getSupportedFlashModes(): Promise<{
     result: CameraPreviewFlashMode[]
   }>;

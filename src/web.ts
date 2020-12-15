@@ -51,6 +51,14 @@ export class CameraPreviewWeb extends WebPlugin implements CameraPreviewPlugin {
     });
   }
 
+    async startRecordVideo(): Promise<any> {
+        throw new Error('startRecordVideo not supported under the web platform');
+    }
+
+    async stopRecordVideo(): Promise<any> {
+        throw new Error('stopRecordVideo not supported under the web platform');
+    }
+
   async stop(): Promise<any> {
     const video = <HTMLVideoElement>document.getElementById("video");
     if (video) {

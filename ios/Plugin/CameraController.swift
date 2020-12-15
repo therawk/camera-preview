@@ -8,6 +8,8 @@
 
 import AVFoundation
 import UIKit
+import AVKit
+import AssetsLibrary
 
 class CameraController: NSObject {
     var captureSession: AVCaptureSession?
@@ -18,9 +20,12 @@ class CameraController: NSObject {
     var frontCameraInput: AVCaptureDeviceInput?
     
     var photoOutput: AVCapturePhotoOutput?
+    var movieOutput: AVCaptureMovieFileOutput?
+    var movieRecordCompletionBlock: ((URL?, Error?) -> Void)?
     
     var rearCamera: AVCaptureDevice?
     var rearCameraInput: AVCaptureDeviceInput?
+    var fileUrl: URL = URL(fileURLWithPath: "")
     
     var previewLayer: AVCaptureVideoPreviewLayer?
     
@@ -88,12 +93,23 @@ extension CameraController {
             captureSession.startRunning()
         }
         
+        func configureMovieOutput() throws {
+            guard let captureSession = self.captureSession else { throw CameraControllerError.captureSessionIsMissing }
+            
+            self.movieOutput = AVCaptureMovieFileOutput()
+            if captureSession.canAddOutput(self.movieOutput!) {
+                captureSession.addOutput(self.movieOutput!)
+            }
+            captureSession.startRunning()
+        }
+        
         DispatchQueue(label: "prepare").async {
             do {
                 createCaptureSession()
                 try configureCaptureDevices()
                 try configureDeviceInputs()
                 try configurePhotoOutput()
+                try configureMovieOutput()
             }
                 
             catch {
@@ -237,6 +253,28 @@ extension CameraController {
         self.photoCaptureCompletionBlock = completion
     }
     
+    func startRecordVideo(completion: @escaping (Error?)-> Void) {
+        guard let captureSession = self.captureSession, captureSession.isRunning else {
+            completion(CameraControllerError.captureSessionIsMissing)
+            return
+        }
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        let uuid = UUID().uuidString
+        self.fileUrl = paths[0].appendingPathComponent("\(uuid).mp4")
+        try? FileManager.default.removeItem(at: fileUrl)
+
+        self.movieOutput!.startRecording(to: fileUrl, recordingDelegate: self)
+    }
+    
+    func stopRecordVideo(completion: @escaping (URL?, Error?) -> Void) {
+        guard let captureSession = self.captureSession, captureSession.isRunning else {
+            completion(nil, CameraControllerError.captureSessionIsMissing)
+            return
+        }
+        self.movieOutput!.stopRecording()
+        self.movieRecordCompletionBlock = completion
+    }
+    
     func getSupportedFlashModes() throws -> [String] {
         var currentCamera: AVCaptureDevice?
         switch currentCameraPosition {
@@ -371,7 +409,47 @@ extension CameraController: AVCapturePhotoCaptureDelegate {
     }
 }
 
-
+extension CameraController: AVCaptureFileOutputRecordingDelegate {
+    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
+        if error == nil {
+            let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let avAsset = AVURLAsset(url: fileUrl, options: nil)
+            let exportSession = AVAssetExportSession(asset: avAsset, presetName: AVAssetExportPresetMediumQuality)!
+            
+            let uuid = UUID().uuidString
+            let outputFile = directory.appendingPathComponent("\(uuid).mp4")
+            try? FileManager.default.removeItem(at: outputFile)
+            exportSession.outputURL = outputFile
+            exportSession.outputFileType = AVFileType.mp4
+            let start = CMTimeMakeWithSeconds(0.0, preferredTimescale: 0)
+            let range = CMTimeRangeMake(start: start, duration: avAsset.duration)
+            exportSession.timeRange = range
+            
+            exportSession.exportAsynchronously(completionHandler: {
+                DispatchQueue.main.async {
+                    switch exportSession.status {
+                        case AVAssetExportSessionStatus.completed:
+                            print("success")
+                            try? FileManager.default.removeItem(at: self.fileUrl)
+                            self.movieRecordCompletionBlock?(outputFile, nil)
+                        case AVAssetExportSessionStatus.failed:
+                            print("failed \(exportSession.error?.localizedDescription ?? "error nil")")
+                            self.movieRecordCompletionBlock?(nil, error)
+                        case AVAssetExportSessionStatus.cancelled:
+                            try? FileManager.default.removeItem(at: self.fileUrl)
+                            print("cancelled \(exportSession.error?.localizedDescription ?? "error nil")")
+                            self.movieRecordCompletionBlock?(nil, error)
+                        default:
+                            print("complete")
+                    }
+                }
+            })
+            
+        } else {
+            self.movieRecordCompletionBlock?(nil, error)
+        }
+    }
+}
 
 
 enum CameraControllerError: Swift.Error {

@@ -122,30 +122,60 @@ public class CameraPreview: CAPPlugin {
             }
         }
     }
-
-    @objc func capture(_ call: CAPPluginCall) {
-        let quality: Int? = call.getInt("quality", 85)
-        
-        self.cameraController.captureImage { (image, error) in
-
-            guard let image = image else {
-                print(error ?? "Image capture error")
-                guard let error = error else {
-                    call.reject("Image capture error")
+    
+    @objc func startRecordVideo(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.cameraController.startRecordVideo { (error) in
+                print(error ?? "Error stoppingVideo")
+                call.reject("Error stopping video")
+            }
+            call.resolve()
+        }
+    }
+    
+    @objc func stopRecordVideo(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.cameraController.stopRecordVideo { (movie, error) in
+                guard let movie = movie else {
+                    print(error ?? "Movie capture error")
+                    guard let error = error else {
+                        call.reject("Movie capture error")
+                        return
+                    }
+                    call.reject(error.localizedDescription)
                     return
                 }
-                call.reject(error.localizedDescription)
-                return
+                let url: String = movie.absoluteString
+                call.resolve(["value": url])
             }
-            let imageData: Data?
-            if (self.cameraPosition == "front") {
-                let flippedImage = image.withHorizontallyFlippedOrientation()
-                imageData = flippedImage.jpegData(compressionQuality: CGFloat(quality!))
-            } else {
-                imageData = image.jpegData(compressionQuality: CGFloat(quality!))
+        }
+    }
+
+    @objc func capture(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            let quality: Int? = call.getInt("quality", 85)
+            
+            self.cameraController.captureImage { (image, error) in
+
+                guard let image = image else {
+                    print(error ?? "Image capture error")
+                    guard let error = error else {
+                        call.reject("Image capture error")
+                        return
+                    }
+                    call.reject(error.localizedDescription)
+                    return
+                }
+                let imageData: Data?
+                if (self.cameraPosition == "front") {
+                    let flippedImage = image.withHorizontallyFlippedOrientation()
+                    imageData = flippedImage.jpegData(compressionQuality: CGFloat(quality!))
+                } else {
+                    imageData = image.jpegData(compressionQuality: CGFloat(quality!))
+                }
+                let imageBase64 = imageData?.base64EncodedString()
+                call.resolve(["value": imageBase64!])
             }
-            let imageBase64 = imageData?.base64EncodedString()
-            call.resolve(["value": imageBase64!])
         }
     }
     
