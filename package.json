@@ -1,5 +1,5 @@
 {
-  "name": "camera-preview",
+  "name": "@capacitor-community/camera-preview",
   "version": "1.0.9",
   "description": "Camera preview",
   "main": "dist/esm/index.js",
