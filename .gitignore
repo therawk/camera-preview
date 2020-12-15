@@ -6,4 +6,3 @@ ios/Pods/
 build/
 .gradle
 android/.gradle
-dist/
