@@ -38,7 +38,7 @@ export class CameraPreviewWeb extends WebPlugin implements CameraPreviewPlugin {
               //video.src = window.URL.createObjectURL(stream);
               videoElement.srcObject = stream;
               videoElement.play();
-              resolve();
+                  resolve({});
             },
             (err) => {
               reject(err);
