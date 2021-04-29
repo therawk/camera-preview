@@ -428,14 +428,14 @@ extension CameraController: AVCaptureFileOutputRecordingDelegate {
             exportSession.exportAsynchronously(completionHandler: {
                 DispatchQueue.main.async {
                     switch exportSession.status {
-                        case AVAssetExportSessionStatus.completed:
+                    case AVAssetExportSession.Status.completed:
                             print("success")
                             try? FileManager.default.removeItem(at: self.fileUrl)
                             self.movieRecordCompletionBlock?(outputFile, nil)
-                        case AVAssetExportSessionStatus.failed:
+                    case AVAssetExportSession.Status.failed:
                             print("failed \(exportSession.error?.localizedDescription ?? "error nil")")
                             self.movieRecordCompletionBlock?(nil, error)
-                        case AVAssetExportSessionStatus.cancelled:
+                    case AVAssetExportSession.Status.cancelled:
                             try? FileManager.default.removeItem(at: self.fileUrl)
                             print("cancelled \(exportSession.error?.localizedDescription ?? "error nil")")
                             self.movieRecordCompletionBlock?(nil, error)
